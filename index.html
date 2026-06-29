@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SG Voucher Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#FBFCFD;
+  --card:#ffffff;
+  --card-alt:#F6F7FA;
+
+  --ink:#242425;
+  --text:#48494B;
+  --muted:#636467;
+  --subtle:#999B9F;
+  --faint:#C9CCCF;
+  --rule:#E1E2E4;
+  --rule-light:#F0F0F1;
+
+  --primary:#505798;
+  --primary-hover:#3B4183;
+  --primary-light:#DFE1F2;
+  --primary-bg:#F6F7FA;
+
+  --blue:#1361F0;
+  --blue-light:#E7EFFC;
+
+  --success:#0C8C3F;
+  --success-light:#E2F1E8;
+
+  --danger:#C05050;
+  --danger-light:#FFF8F8;
+
+  --warning:#E67C18;
+  --warning-light:#FDF7F0;
+
+  --c-cdc:#5d6785;
+  --c-cdc-bg:#E7EFFC;
+  --c-sg60:#a85858;
+  --c-sg60-bg:#FFF8F8;
+  --c-clim:#6a9c6a;
+  --c-clim-bg:#E2F1E8;
+
+  --sans:'Inter',system-ui,-apple-system,sans-serif;
+  --radius:8px;
+  --radius-sm:6px;
+  --shadow:0 1px 3px rgba(36,36,37,.08),0 1px 2px rgba(36,36,37,.04);
+}
+
+html{font-size:14.5px}
+body{
+  font-family:var(--sans);background:var(--bg);color:var(--ink);
+  min-height:100vh;line-height:1.6;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+}
+
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.container{max-width:880px;margin:0 auto;padding:32px 24px 80px}
+
+header{margin-bottom:28px;padding:24px 0 20px}
+header h1{font-size:1.5rem;font-weight:700;color:var(--ink);letter-spacing:-.02em}
+header .subtitle{color:var(--muted);font-size:.86rem;margin-top:3px;font-weight:400}
+header .badge{
+  display:inline-block;margin-top:8px;
+  font-size:.68rem;font-weight:600;
+  color:var(--primary);background:var(--primary-light);
+  padding:3px 10px;border-radius:20px;letter-spacing:.02em;
+}
+
+.card{
+  background:var(--card);border:1px solid var(--rule);
+  border-radius:var(--radius);padding:22px 24px;margin-bottom:14px;
+  box-shadow:var(--shadow);
+}
+.card-title{
+  font-size:.82rem;font-weight:700;
+  color:var(--ink);margin-bottom:14px;
+  padding-bottom:10px;border-bottom:1px solid var(--rule-light);
+}
+
+.form-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;align-items:end}
+.form-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px}
+.form-group label{
+  font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;
+}
+.form-group select,.form-group input[type="number"]{
+  background:var(--card);border:1px solid var(--rule);color:var(--ink);
+  padding:8px 11px;border-radius:var(--radius-sm);
+  font-family:var(--sans);font-size:.86rem;font-weight:500;
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.form-group select:focus,.form-group input:focus{
+  border-color:var(--primary);
+  box-shadow:0 0 0 3px rgba(80,87,152,.12);
+}
+.form-group select{
+  cursor:pointer;-webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%23636467'%3E%3Cpath d='M1.5 3l3.5 4 3.5-4'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
+}
+
+.check-row{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.check-row input[type="checkbox"]{
+  width:16px;height:16px;accent-color:var(--primary);cursor:pointer;
+  border-radius:3px;
+}
+.check-row label{font-size:.84rem;color:var(--text);cursor:pointer}
+.check-row .hint{font-size:.72rem;color:var(--subtle);margin-left:2px}
+
+button.calc{
+  background:var(--primary);color:#fff;border:none;
+  padding:9px 24px;border-radius:var(--radius-sm);
+  font-family:var(--sans);font-size:.84rem;font-weight:600;
+  cursor:pointer;transition:background .15s;
+}
+button.calc:hover{background:var(--primary-hover)}
+
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.metric{
+  background:var(--card-alt);border:1px solid var(--rule-light);
+  border-radius:var(--radius-sm);padding:14px 12px;text-align:center;
+}
+.metric .m-label{
+  font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--subtle);margin-bottom:4px;font-weight:600;
+}
+.metric .m-value{font-size:1.3rem;font-weight:700;letter-spacing:-.01em}
+.metric.m-total .m-value{color:var(--primary)}
+.metric.m-cdc .m-value{color:var(--c-cdc)}
+.metric.m-sg60 .m-value{color:var(--c-sg60)}
+.metric.m-clim .m-value{color:var(--c-clim)}
+
+/* Vertical bar chart */
+.vchart{display:flex;align-items:flex-end;gap:0;margin:20px 0 0;padding:0 4px;border-bottom:1px solid var(--rule)}
+.vchart-col{flex:1;display:flex;flex-direction:column;align-items:center}
+.vchart-val{font-size:.7rem;font-weight:600;color:var(--muted);margin-bottom:4px;white-space:nowrap}
+.vchart-stack{width:60%;max-width:48px}
+.vchart-seg{width:100%;display:block;position:relative;cursor:default;transition:opacity .12s}
+.vchart-seg.seg-cdc{background:var(--c-cdc)}
+.vchart-seg.seg-sg60{background:var(--c-sg60)}
+.vchart-seg.seg-clim{background:var(--c-clim)}
+.vchart-seg:hover{opacity:.75}
+.vchart-label{font-size:.72rem;font-weight:500;color:var(--subtle);margin-top:6px;padding-top:6px}
+
+.vtip{
+  position:fixed;pointer-events:none;z-index:100;
+  background:var(--ink);color:#fff;
+  font-family:var(--sans);font-size:.76rem;font-weight:600;
+  padding:5px 10px;border-radius:4px;white-space:nowrap;
+  box-shadow:0 2px 8px rgba(0,0,0,.18);
+  transform:translate(-50%,-110%);
+  opacity:0;transition:opacity .1s;
+}
+.vtip.show{opacity:1}
+
+.legend{display:flex;gap:14px;margin-bottom:2px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--muted);font-weight:500}
+.legend-dot{width:9px;height:9px;border-radius:2px}
+
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+thead th{
+  text-align:left;padding:8px 10px;
+  border-bottom:2px solid var(--rule);
+  color:var(--muted);font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.04em;font-weight:600;background:var(--card);
+}
+tbody td{padding:8px 10px;border-bottom:1px solid var(--rule-light)}
+tbody tr:hover{background:var(--card-alt)}
+
+.amt{font-weight:600;color:var(--success);white-space:nowrap;font-size:.82rem}
+.amt.na{color:var(--subtle);font-weight:400}
+.running-total{font-weight:700;color:var(--primary);white-space:nowrap;font-size:.82rem}
+
+.pill{
+  display:inline-block;padding:2px 8px;border-radius:4px;
+  font-size:.68rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;
+}
+.pill.p-cdc{background:var(--c-cdc-bg);color:var(--c-cdc)}
+.pill.p-sg60{background:var(--c-sg60-bg);color:var(--c-sg60)}
+.pill.p-climate{background:var(--c-clim-bg);color:var(--c-clim)}
+.pill.p-yes{background:var(--success-light);color:var(--success)}
+.pill.p-no{background:var(--danger-light);color:var(--danger)}
+.pill.p-means{background:var(--warning-light);color:var(--warning)}
+.pill.p-expired{background:var(--rule-light);color:var(--subtle)}
+.pill.p-active{background:var(--success-light);color:var(--success)}
+
+.notes{font-size:.76rem;color:var(--muted);margin-top:14px;line-height:1.7}
+.notes strong{color:var(--text)}
+
+#results{display:none}
+
+footer{
+  text-align:center;padding:20px 0;font-size:.72rem;color:var(--subtle);
+  margin-top:28px;border-top:1px solid var(--rule-light);
+}
+
+@media(max-width:700px){
+  .container{padding:16px 14px 60px}
+  .form-row{flex-direction:column}
+  .form-group{min-width:100%}
+  .metrics{grid-template-columns:1fr 1fr}
+  .metric .m-value{font-size:1.1rem}
+  .metric{padding:12px 10px}
+  header h1{font-size:1.3rem}
+  .card{padding:14px 16px}
+  .card-title{font-size:.78rem;margin-bottom:12px}
+  .legend{gap:10px}
+  .vchart-val{font-size:.64rem}
+  .vchart-label{font-size:.66rem}
+  table{font-size:.72rem}
+  thead th{font-size:.62rem;padding:6px 5px}
+  tbody td{padding:6px 5px}
+  .pill{font-size:.62rem;padding:2px 6px}
+  .amt,.running-total{font-size:.74rem}
+  .check-row .hint{display:block;margin-left:0;margin-top:2px}
+  .notes{font-size:.7rem}
+  footer{font-size:.66rem}
+}
+@media(max-width:480px){
+  .metrics{grid-template-columns:1fr 1fr}
+  header{padding:16px 0 14px}
+  header .subtitle{font-size:.8rem}
+  .tbl-wrap{margin:0 -16px;padding:0 16px}
+  thead .col-split,thead .col-claim,tbody .col-split,tbody .col-claim{display:none}
+}
+@media(max-width:360px){
+  .metrics{grid-template-columns:1fr}
+  .container{padding:12px 10px 48px}
+}
+</style>
+</head>
+<body>
+<div class="vtip" id="vtip"></div>
+<div class="container">
+  <header>
+    <h1>SG Voucher Tracker</h1>
+    <p class="subtitle">CDC, SG60 & Climate voucher entitlements by household (2020–2026)</p>
+    <span class="badge">2020 — 2026</span>
+  </header>
+
+  <div class="card">
+    <div class="card-title">Configuration</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>From Year</label>
+        <select id="yearFrom">
+          <option value="2020">2020</option>
+          <option value="2021">2021</option>
+          <option value="2022">2022</option>
+          <option value="2023">2023</option>
+          <option value="2024">2024</option>
+          <option value="2025">2025</option>
+          <option value="2026">2026</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>To Year</label>
+        <select id="yearTo">
+          <option value="2026" selected>2026</option>
+          <option value="2025">2025</option>
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+          <option value="2022">2022</option>
+          <option value="2021">2021</option>
+          <option value="2020">2020</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Birth Year</label>
+        <input type="number" id="birthYear" placeholder="e.g. 1990" min="1920" max="2010" value="1990">
+      </div>
+      <div class="form-group">
+        <label>Housing Type</label>
+        <select id="housingType">
+          <option value="hdb-small">HDB 1–3 Room</option>
+          <option value="hdb-large" selected>HDB 4–5 Room / Exec</option>
+          <option value="private">Private Property</option>
+          <option value="none">Non-residential</option>
+        </select>
+      </div>
+    </div>
+    <div class="check-row">
+      <input type="checkbox" id="isCitizen" checked>
+      <label for="isCitizen">Singapore Citizen household</label>
+    </div>
+    <div class="check-row">
+      <input type="checkbox" id="isLowerIncome">
+      <label for="isLowerIncome">Lower-income household (2020)</label>
+      <span class="hint">— Jun 2020 means-tested CDC tranche only</span>
+    </div>
+    <div style="margin-top:14px">
+      <button class="calc" onclick="calculate()">Calculate</button>
+    </div>
+  </div>
+
+  <div id="results">
+    <div class="card">
+      <div class="card-title">Summary</div>
+      <div class="metrics" id="metricsGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Annual Distribution</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-cdc)"></div> CDC</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-sg60)"></div> SG60</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-clim)"></div> Climate</div>
+      </div>
+      <div id="barChart"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">All Tranches</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tranche</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th class="col-split">Split / Use</th>
+              <th>Eligible</th>
+              <th class="col-claim">Claim From</th>
+              <th>Expires</th>
+              <th>Status</th>
+              <th style="text-align:right">Running Total</th>
+            </tr>
+          </thead>
+          <tbody id="trancheTable"></tbody>
+        </table>
+      </div>
+      <p class="notes" id="notesArea"></p>
+    </div>
+  </div>
+
+  <footer>
+    Data sourced from
+    <a href="https://vouchers.cdc.gov.sg" target="_blank">vouchers.cdc.gov.sg</a>,
+    <a href="https://www.sg60.gov.sg/budget-initiatives/sg60-vouchers/" target="_blank">sg60.gov.sg</a>,
+    <a href="https://www.climate-friendly-households.gov.sg/" target="_blank">climate-friendly-households.gov.sg</a>
+    and government press releases. Last verified June 2026.
+    For reference only — not official government guidance.
+  </footer>
+</div>
+
+<script>
+'use strict';
+
+const TRANCHES = [
+  {
+    id:'cdc-2020-jun', label:'Jun 2020', year:2020, type:'CDC',
+    amount:50, splitHeartland:50, splitSupermarket:0,
+    claimFrom:'2020-06-12', expires:'2020-12-31',
+    eligibility:'means-tested',
+    note:'Physical paper vouchers (S$2 denominations). Means-tested: ~400,000 lower-income households only.'
+  },
+  {
+    id:'cdc-2021-dec', label:'Dec 2021', year:2021, type:'CDC',
+    amount:100, splitHeartland:50, splitSupermarket:50,
+    claimFrom:'2021-12-13', expires:'2022-12-31',
+    eligibility:'all',
+    note:'First digital tranche via RedeemSG. All Singaporean households eligible.'
+  },
+  {
+    id:'cdc-2022-may', label:'May 2022', year:2022, type:'CDC',
+    amount:100, splitHeartland:50, splitSupermarket:50,
+    claimFrom:'2022-05-01', expires:'2022-12-31',
+    eligibility:'all',
+    note:'Part of the Household Support Package.'
+  },
+  {
+    id:'cdc-2023-jan', label:'Jan 2023', year:2023, type:'CDC',
+    amount:300, splitHeartland:150, splitSupermarket:150,
+    claimFrom:'2023-01-03', expires:'2023-12-31',
+    eligibility:'all',
+    note:'First tranche with 50/50 heartland-supermarket split.'
+  },
+  {
+    id:'cdc-2024-jan', label:'Jan 2024', year:2024, type:'CDC',
+    amount:500, splitHeartland:250, splitSupermarket:250,
+    claimFrom:'2024-01-03', expires:'2024-12-31',
+    eligibility:'all',
+    note:'Part of S$800 total CDC vouchers announced in Budget 2024.'
+  },
+  {
+    id:'cdc-2024-jun', label:'Jun 2024', year:2024, type:'CDC',
+    amount:300, splitHeartland:150, splitSupermarket:150,
+    claimFrom:'2024-06-01', expires:'2024-12-31',
+    eligibility:'all',
+    note:'Second tranche of Budget 2024 CDC vouchers.'
+  },
+  {
+    id:'cdc-2025-jan', label:'Jan 2025', year:2025, type:'CDC',
+    amount:300, splitHeartland:150, splitSupermarket:150,
+    claimFrom:'2025-01-03', expires:'2025-12-31',
+    eligibility:'all',
+    note:'Part of S$800 total CDC vouchers announced in Budget 2025.'
+  },
+  {
+    id:'cdc-2025-may', label:'May 2025', year:2025, type:'CDC',
+    amount:500, splitHeartland:250, splitSupermarket:250,
+    claimFrom:'2025-05-13', expires:'2025-12-31',
+    eligibility:'all',
+    note:'Second tranche of Budget 2025 CDC vouchers.'
+  },
+  {
+    id:'cdc-2026-jan', label:'Jan 2026', year:2026, type:'CDC',
+    amount:300, splitHeartland:150, splitSupermarket:150,
+    claimFrom:'2026-01-02', expires:'2026-12-31',
+    eligibility:'all',
+    note:'Part of S$800 total CDC vouchers announced in Budget 2026.'
+  },
+  {
+    id:'cdc-2026-jun', label:'Jun 2026', year:2026, type:'CDC',
+    amount:500, splitHeartland:250, splitSupermarket:250,
+    claimFrom:'2026-06-11', expires:'2027-12-31',
+    eligibility:'all',
+    note:'Brought forward from Jan 2027. Valid until 31 Dec 2027.'
+  },
+  {
+    id:'sg60-2025', label:'Nov 2025', year:2025, type:'SG60',
+    amount:null, amountAdult:600, amountSenior:800,
+    splitHeartland:null, splitSupermarket:null,
+    claimFrom:'2025-11-01', claimFromAdult:'2025-11-22',
+    expires:'2026-12-31',
+    eligibility:'citizen-individual',
+    note:'Per individual (not household). Citizens aged 60+ in 2025: S$800. Aged 21–59: S$600. Seniors claim from 1 Nov, others from 22 Nov 2025.'
+  },
+  {
+    id:'clim-2020-nov', label:'Nov 2020', year:2020, type:'Climate',
+    amount:225,
+    claimFrom:'2020-11-28', expires:'2027-12-31',
+    eligibility:'hdb-small',
+    note:'Climate Friendly Households Programme launch. 1–3 room HDB only. For energy/water-efficient appliances (fridge, LED, shower fittings).',
+    splitUse:'Appliances & fittings'
+  },
+  {
+    id:'clim-2024-apr', label:'Apr 2024', year:2024, type:'Climate',
+    amount:300, amountTopUp:75,
+    claimFrom:'2024-04-15', expires:'2027-12-31',
+    eligibility:'hdb-all',
+    note:'Enhanced CFHP. All HDB households: S$300. Existing 1–3 room claimants receive S$75 top-up (S$300 total cumulative). Covers 10 appliance/fitting types.',
+    splitUse:'Appliances & fittings'
+  },
+  {
+    id:'clim-2025-apr', label:'Apr 2025', year:2025, type:'Climate',
+    amount:100,
+    claimFrom:'2025-04-15', expires:'2027-12-31',
+    eligibility:'all-housing',
+    note:'Additional S$100 for all HDB households (S$400 cumulative). Extended to SC households in private property (S$400). Valid until 31 Dec 2027.',
+    splitUse:'Appliances & fittings'
+  }
+];
+
+function calculate() {
+  const yearFrom = +document.getElementById('yearFrom').value;
+  const yearTo = +document.getElementById('yearTo').value;
+  const birthYear = +document.getElementById('birthYear').value;
+  const isCitizen = document.getElementById('isCitizen').checked;
+  const isLowerIncome = document.getElementById('isLowerIncome').checked;
+  const housing = document.getElementById('housingType').value;
+
+  if (yearFrom > yearTo) { alert('"From Year" must be ≤ "To Year".'); return; }
+  if (!birthYear || birthYear < 1920 || birthYear > 2010) { alert('Enter a valid birth year (1920–2010).'); return; }
+
+  const today = new Date();
+  const filtered = TRANCHES.filter(t => t.year >= yearFrom && t.year <= yearTo)
+    .sort((a, b) => a.claimFrom.localeCompare(b.claimFrom));
+  let runningTotal = 0, totalCDC = 0, totalSG60 = 0, totalClim = 0, trancheCount = 0;
+  const rows = [], yearTotals = {}, notes = new Set();
+
+  for (const t of filtered) {
+    let eligible = false, eligLabel = '', amount = 0;
+
+    if (t.type === 'CDC') {
+      if (!isCitizen) { eligLabel = 'Not SC household'; }
+      else if (t.eligibility === 'means-tested') {
+        if (isLowerIncome) { eligible = true; eligLabel = 'Means-tested'; }
+        else { eligLabel = 'Means-tested only'; }
+      } else { eligible = true; eligLabel = 'Eligible'; }
+      amount = eligible ? t.amount : 0;
+
+    } else if (t.type === 'SG60') {
+      if (!isCitizen) { eligLabel = 'Not SC'; }
+      else {
+        const age25 = 2025 - birthYear;
+        if (age25 < 21) { eligLabel = 'Under 21 in 2025'; }
+        else if (age25 >= 60) { eligible = true; amount = t.amountSenior; eligLabel = 'Senior $800'; }
+        else { eligible = true; amount = t.amountAdult; eligLabel = 'Adult $600'; }
+      }
+
+    } else if (t.type === 'Climate') {
+      if (housing === 'none') { eligLabel = 'Non-residential'; }
+      else if (t.eligibility === 'hdb-small') {
+        if (housing === 'hdb-small') { eligible = true; eligLabel = '1–3 rm HDB'; amount = t.amount; }
+        else { eligLabel = '1–3 rm HDB only'; }
+      } else if (t.eligibility === 'hdb-all') {
+        if (housing === 'hdb-small') {
+          eligible = true; eligLabel = 'Top-up'; amount = t.amountTopUp;
+        } else if (housing === 'hdb-large') {
+          eligible = true; eligLabel = 'All HDB'; amount = t.amount;
+        } else { eligLabel = 'HDB only'; }
+      } else if (t.eligibility === 'all-housing') {
+        if (housing === 'private') {
+          if (isCitizen) { eligible = true; eligLabel = 'Private SC'; amount = 400; }
+          else { eligLabel = 'SC only'; }
+        } else if (housing !== 'none') {
+          eligible = true; eligLabel = 'All housing'; amount = t.amount;
+        }
+      }
+    }
+
+    if (eligible) {
+      runningTotal += amount;
+      trancheCount++;
+      if (t.type === 'CDC') totalCDC += amount;
+      else if (t.type === 'SG60') totalSG60 += amount;
+      else totalClim += amount;
+      if (!yearTotals[t.year]) yearTotals[t.year] = {cdc:0,sg60:0,clim:0};
+      const k = t.type === 'CDC' ? 'cdc' : t.type === 'SG60' ? 'sg60' : 'clim';
+      yearTotals[t.year][k] += amount;
+    }
+
+    const expiryDate = new Date(t.expires + 'T23:59:59');
+    const isExpired = today > expiryDate;
+    const claimDate = new Date(t.claimFrom);
+    const isClaimable = today >= claimDate && !isExpired;
+
+    let statusPill = '';
+    if (eligible) {
+      if (isExpired) statusPill = '<span class="pill p-expired">Expired</span>';
+      else if (isClaimable) statusPill = '<span class="pill p-active">Active</span>';
+      else statusPill = '<span class="pill p-active">Upcoming</span>';
+    }
+
+    let splitText = '';
+    if (t.type === 'Climate') {
+      splitText = eligible ? (t.splitUse || '—') : '—';
+    } else if (t.type === 'SG60') {
+      const half = amount / 2;
+      splitText = half > 0 ? `$${half} H / $${half} S` : '—';
+    } else if (t.splitHeartland && t.splitSupermarket) {
+      splitText = `$${t.splitHeartland} H / $${t.splitSupermarket} S`;
+    } else if (t.splitHeartland && !t.splitSupermarket) {
+      splitText = `$${t.splitHeartland} heartland`;
+    } else { splitText = '—'; }
+
+    let eligPill;
+    if (t.type === 'CDC' && t.eligibility === 'means-tested' && eligible) {
+      eligPill = `<span class="pill p-means">${eligLabel}</span>`;
+    } else if (eligible) {
+      eligPill = `<span class="pill p-yes">${eligLabel}</span>`;
+    } else {
+      eligPill = `<span class="pill p-no">${eligLabel}</span>`;
+    }
+
+    const claimLabel = t.type === 'SG60' && eligible
+      ? (2025 - birthYear >= 60 ? fmtDate(t.claimFrom) : fmtDate(t.claimFromAdult))
+      : fmtDate(t.claimFrom);
+
+    if (t.note) notes.add(t.note);
+
+    const typeClass = t.type === 'CDC' ? 'p-cdc' : t.type === 'SG60' ? 'p-sg60' : 'p-climate';
+
+    rows.push(`<tr>
+      <td style="font-weight:600;white-space:nowrap">${t.label}</td>
+      <td><span class="pill ${typeClass}">${t.type}</span></td>
+      <td class="amt${eligible ? '' : ' na'}">${eligible ? 'S$' + amount.toLocaleString() : '—'}</td>
+      <td class="col-split" style="font-size:.76rem;color:var(--muted)">${eligible ? splitText : '—'}</td>
+      <td>${eligPill}</td>
+      <td class="col-claim" style="font-size:.78rem;color:var(--muted)">${claimLabel}</td>
+      <td style="font-size:.78rem;color:var(--muted)">${fmtDate(t.expires)}</td>
+      <td>${statusPill}</td>
+      <td class="running-total" style="text-align:right">${eligible ? 'S$' + runningTotal.toLocaleString() : ''}</td>
+    </tr>`);
+  }
+
+  document.getElementById('trancheTable').innerHTML = rows.join('');
+
+  const grandTotal = totalCDC + totalSG60 + totalClim;
+  document.getElementById('metricsGrid').innerHTML = `
+    <div class="metric m-total"><div class="m-label">Total</div><div class="m-value">S$${grandTotal.toLocaleString()}</div></div>
+    <div class="metric m-cdc"><div class="m-label">CDC</div><div class="m-value">S$${totalCDC.toLocaleString()}</div></div>
+    <div class="metric m-sg60"><div class="m-label">SG60</div><div class="m-value">S$${totalSG60.toLocaleString()}</div></div>
+    <div class="metric m-clim"><div class="m-label">Climate</div><div class="m-value">S$${totalClim.toLocaleString()}</div></div>
+  `;
+
+  const chartH = 170;
+  const maxVal = Math.max(...Object.values(yearTotals).map(y => y.cdc + y.sg60 + y.clim), 1);
+  let chartHtml = '<div class="vchart">';
+  for (let yr = yearFrom; yr <= yearTo; yr++) {
+    const yt = yearTotals[yr] || {cdc:0, sg60:0, clim:0};
+    const total = yt.cdc + yt.sg60 + yt.clim;
+    const cdcPx = Math.round((yt.cdc / maxVal) * chartH);
+    const sg60Px = Math.round((yt.sg60 / maxVal) * chartH);
+    const climPx = Math.round((yt.clim / maxVal) * chartH);
+
+    chartHtml += `<div class="vchart-col">
+      ${total > 0 ? `<div class="vchart-val">$${total.toLocaleString()}</div>` : '<div class="vchart-val" style="visibility:hidden">—</div>'}
+      <div class="vchart-stack">
+        ${sg60Px > 0 ? `<div class="vchart-seg seg-sg60" style="height:${sg60Px}px" data-tip="SG60 — S$${yt.sg60.toLocaleString()}"></div>` : ''}
+        ${climPx > 0 ? `<div class="vchart-seg seg-clim" style="height:${climPx}px" data-tip="Climate — S$${yt.clim.toLocaleString()}"></div>` : ''}
+        ${cdcPx > 0 ? `<div class="vchart-seg seg-cdc" style="height:${cdcPx}px" data-tip="CDC — S$${yt.cdc.toLocaleString()}"></div>` : ''}
+      </div>
+      <div class="vchart-label">${yr}</div>
+    </div>`;
+  }
+  chartHtml += '</div>';
+  document.getElementById('barChart').innerHTML = chartHtml;
+  bindChartTips();
+
+  const notesArr = [...notes];
+  document.getElementById('notesArea').innerHTML = notesArr.length
+    ? '<strong>Notes:</strong><br>' + notesArr.map((n, i) => `${i + 1}. ${n}`).join('<br>')
+    : '';
+
+  const res = document.getElementById('results');
+  res.style.display = 'block';
+  res.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function fmtDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d.getDate()} ${m[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function bindChartTips() {
+  const tip = document.getElementById('vtip');
+  document.querySelectorAll('.vchart-seg[data-tip]').forEach(seg => {
+    seg.addEventListener('mouseenter', () => { tip.textContent = seg.dataset.tip; tip.classList.add('show'); });
+    seg.addEventListener('mousemove', e => { tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; });
+    seg.addEventListener('mouseleave', () => { tip.classList.remove('show'); });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => calculate());
+</script>
+</body>
+</html>
