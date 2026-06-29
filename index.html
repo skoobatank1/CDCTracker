@@ -707,7 +707,8 @@ function calculate() {
 
   const res = document.getElementById('results');
   res.style.display = 'block';
-  res.scrollIntoView({behavior:'smooth', block:'start'});
+  if (!res.dataset.initialLoad) res.scrollIntoView({behavior:'smooth', block:'start'});
+  delete res.dataset.initialLoad;
 }
 
 function fmtDate(dateStr) {
@@ -725,7 +726,10 @@ function bindChartTips() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => calculate());
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('results').dataset.initialLoad = '1';
+  calculate();
+});
 </script>
 </body>
 </html>
