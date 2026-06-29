@@ -196,6 +196,33 @@ tbody tr:hover{background:var(--card-alt)}
 
 #results{display:none}
 
+.claimable-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.claimable-item{
+  background:var(--card-alt);border:1px solid var(--rule-light);
+  border-radius:var(--radius-sm);padding:14px 16px;
+  display:flex;flex-direction:column;gap:6px;
+  justify-content:space-between;
+}
+.claimable-item .ci-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.claimable-item .ci-type{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.claimable-item .ci-type.t-cdc{color:var(--c-cdc)}
+.claimable-item .ci-type.t-sg60{color:var(--c-sg60)}
+.claimable-item .ci-type.t-climate{color:var(--c-clim)}
+.claimable-item .ci-amount{font-size:1.3rem;font-weight:700;color:var(--primary)}
+.claimable-item .ci-details{font-size:.74rem;color:var(--muted);line-height:1.5}
+.claimable-item .ci-link{
+  display:inline-block;margin-top:auto;padding-top:6px;
+  font-size:.74rem;font-weight:600;color:var(--blue);
+}
+.claimable-item .ci-link:hover{text-decoration:underline}
+.claimable-total{
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--rule-light);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.claimable-total .ct-label{font-size:.74rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.claimable-total .ct-value{font-size:1.3rem;font-weight:700;color:var(--primary)}
+.claimable-none{font-size:.84rem;color:var(--subtle);padding:8px 0}
+
 footer{
   text-align:center;padding:20px 0;font-size:.72rem;color:var(--subtle);
   margin-top:28px;border-top:1px solid var(--rule-light);
@@ -301,8 +328,13 @@ footer{
   </div>
 
   <div id="results">
+    <div class="card" id="claimableCard" style="display:none">
+      <div class="card-title">Currently Eligible</div>
+      <div id="claimableContent"></div>
+    </div>
+
     <div class="card">
-      <div class="card-title">Summary</div>
+      <div class="card-title">Total Issued</div>
       <div class="metrics" id="metricsGrid"></div>
     </div>
 
@@ -475,6 +507,7 @@ function calculate() {
     .sort((a, b) => a.claimFrom.localeCompare(b.claimFrom));
   let runningTotal = 0, totalCDC = 0, totalSG60 = 0, totalClim = 0, trancheCount = 0;
   const rows = [], yearTotals = {}, notes = new Set();
+  const claimable = [];
 
   for (const t of filtered) {
     let eligible = false, eligLabel = '', amount = 0;
@@ -533,6 +566,10 @@ function calculate() {
     const claimDate = new Date(t.claimFrom);
     const isClaimable = today >= claimDate && !isExpired;
 
+    if (eligible && isClaimable) {
+      claimable.push({ type: t.type, label: t.label, amount, expires: t.expires, id: t.id });
+    }
+
     let statusPill = '';
     if (eligible) {
       if (isExpired) statusPill = '<span class="pill p-expired">Expired</span>';
@@ -583,6 +620,52 @@ function calculate() {
   }
 
   document.getElementById('trancheTable').innerHTML = rows.join('');
+
+  // Currently Eligible section
+  const claimCard = document.getElementById('claimableCard');
+  const claimContent = document.getElementById('claimableContent');
+  if (claimable.length > 0) {
+    const CLAIM_LINKS = {
+      CDC: 'https://go.gov.sg/cdcv',
+      SG60: 'https://vouchers.sg60.gov.sg',
+      Climate: 'https://go.gov.sg/cv'
+    };
+    const byType = {};
+    for (const c of claimable) {
+      if (!byType[c.type]) byType[c.type] = { amount: 0, byExpiry: {} };
+      byType[c.type].amount += c.amount;
+      if (!byType[c.type].byExpiry[c.expires]) byType[c.type].byExpiry[c.expires] = 0;
+      byType[c.type].byExpiry[c.expires] += c.amount;
+    }
+    const claimTotal = claimable.reduce((s, c) => s + c.amount, 0);
+    let html = '<div class="claimable-grid">';
+    for (const [type, data] of Object.entries(byType)) {
+      const cls = type === 'CDC' ? 't-cdc' : type === 'SG60' ? 't-sg60' : 't-climate';
+      const link = CLAIM_LINKS[type] || '#';
+      const expiryEntries = Object.entries(data.byExpiry).sort((a, b) => a[0].localeCompare(b[0]));
+      const expiryText = expiryEntries.map(([exp, amt]) =>
+        `S$${amt.toLocaleString()} expires ${fmtDate(exp)}`
+      ).join('<br>');
+      html += `<div class="claimable-item">
+        <div class="ci-header">
+          <span class="ci-type ${cls}">${type}</span>
+          <span class="ci-amount">S$${data.amount.toLocaleString()}</span>
+        </div>
+        <div class="ci-details">${expiryText}</div>
+        <a class="ci-link" href="${link}" target="_blank">Claim now &rarr;</a>
+      </div>`;
+    }
+    html += '</div>';
+    html += `<div class="claimable-total">
+      <span class="ct-label">Total eligible</span>
+      <span class="ct-value">S$${claimTotal.toLocaleString()}</span>
+    </div>`;
+    claimContent.innerHTML = html;
+    claimCard.style.display = '';
+  } else {
+    claimContent.innerHTML = '<div class="claimable-none">No vouchers currently claimable in selected range.</div>';
+    claimCard.style.display = '';
+  }
 
   const grandTotal = totalCDC + totalSG60 + totalClim;
   document.getElementById('metricsGrid').innerHTML = `
