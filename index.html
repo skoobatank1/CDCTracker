@@ -38,12 +38,12 @@
   --warning:#E67C18;
   --warning-light:#FDF7F0;
 
-  --c-cdc:#5d6785;
-  --c-cdc-bg:#E7EFFC;
-  --c-sg60:#a85858;
-  --c-sg60-bg:#FFF8F8;
-  --c-clim:#6a9c6a;
-  --c-clim-bg:#E2F1E8;
+  --c-cdc:#525796;
+  --c-cdc-bg:#eeeef7;
+  --c-sg60:#ba0c33;
+  --c-sg60-bg:#fceef1;
+  --c-clim:#6baf38;
+  --c-clim-bg:#f0f7ea;
 
   --sans:'Inter',system-ui,-apple-system,sans-serif;
   --radius:8px;
@@ -64,8 +64,8 @@ a:hover{text-decoration:underline}
 .container{max-width:880px;margin:0 auto;padding:32px 24px 80px}
 
 header{margin-bottom:28px;padding:24px 0 20px}
-header h1{font-size:1.85rem;font-weight:700;color:var(--ink);letter-spacing:-.02em}
-header .subtitle{color:var(--muted);font-size:.86rem;margin-top:3px;font-weight:400}
+header h1{font-size:1.85rem;font-weight:700;color:#313475;letter-spacing:-.02em}
+header .subtitle{color:#000;font-size:.86rem;margin-top:3px;font-weight:400}
 header .badge{
   display:inline-block;margin-top:8px;
   font-size:.68rem;font-weight:600;
@@ -79,7 +79,7 @@ header .badge{
   box-shadow:var(--shadow);
 }
 .card-title{
-  font-size:.82rem;font-weight:700;
+  font-size:calc(.82rem + 5px);font-weight:700;
   color:var(--ink);margin-bottom:14px;
   padding-bottom:10px;border-bottom:1px solid var(--rule-light);
 }
@@ -639,7 +639,8 @@ function calculate() {
     }
     const claimTotal = claimable.reduce((s, c) => s + c.amount, 0);
     let html = '<div class="claimable-grid">';
-    for (const [type, data] of Object.entries(byType)) {
+    for (const type of ['CDC', 'SG60', 'Climate'].filter(t => byType[t])) {
+      const data = byType[type];
       const cls = type === 'CDC' ? 't-cdc' : type === 'SG60' ? 't-sg60' : 't-climate';
       const link = CLAIM_LINKS[type] || '#';
       const expiryEntries = Object.entries(data.byExpiry).sort((a, b) => a[0].localeCompare(b[0]));
@@ -688,8 +689,8 @@ function calculate() {
     chartHtml += `<div class="vchart-col">
       ${total > 0 ? `<div class="vchart-val">$${total.toLocaleString()}</div>` : '<div class="vchart-val" style="visibility:hidden">—</div>'}
       <div class="vchart-stack">
-        ${sg60Px > 0 ? `<div class="vchart-seg seg-sg60" style="height:${sg60Px}px" data-tip="SG60 — S$${yt.sg60.toLocaleString()}"></div>` : ''}
         ${climPx > 0 ? `<div class="vchart-seg seg-clim" style="height:${climPx}px" data-tip="Climate — S$${yt.clim.toLocaleString()}"></div>` : ''}
+        ${sg60Px > 0 ? `<div class="vchart-seg seg-sg60" style="height:${sg60Px}px" data-tip="SG60 — S$${yt.sg60.toLocaleString()}"></div>` : ''}
         ${cdcPx > 0 ? `<div class="vchart-seg seg-cdc" style="height:${cdcPx}px" data-tip="CDC — S$${yt.cdc.toLocaleString()}"></div>` : ''}
       </div>
       <div class="vchart-label">${yr}</div>
