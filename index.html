@@ -174,7 +174,12 @@ button.calc:hover{background:var(--primary-hover)}
 .vchart-seg.seg-cdc{background:var(--c-cdc)}
 .vchart-seg.seg-sg60{background:var(--c-sg60)}
 .vchart-seg.seg-clim{background:var(--c-clim)}
+.vchart-seg.seg-announced{
+  background:repeating-linear-gradient(45deg,var(--faint),var(--faint) 4px,var(--rule-light) 4px,var(--rule-light) 8px);
+  border-top:1px dashed var(--subtle);
+}
 .vchart-seg:hover{opacity:.75}
+.vchart-val-ann{font-size:.64rem;font-weight:600;color:var(--subtle);margin-bottom:2px;white-space:nowrap}
 .vchart-label{font-size:.72rem;font-weight:500;color:var(--subtle);margin-top:6px;padding-top:6px}
 
 .vtip{
@@ -191,6 +196,10 @@ button.calc:hover{background:var(--primary-hover)}
 .legend{display:flex;gap:14px;margin-bottom:2px;flex-wrap:wrap}
 .legend-item{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--muted);font-weight:500}
 .legend-dot{width:9px;height:9px;border-radius:2px}
+.legend-dot.dot-announced{
+  background:repeating-linear-gradient(45deg,var(--faint),var(--faint) 3px,var(--rule-light) 3px,var(--rule-light) 6px);
+  border:1px solid var(--subtle);
+}
 
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:.82rem}
@@ -219,6 +228,10 @@ tbody tr:hover{background:var(--card-alt)}
 .pill.p-means{background:var(--warning-light);color:var(--warning)}
 .pill.p-expired{background:var(--rule-light);color:var(--subtle)}
 .pill.p-active{background:var(--success-light);color:var(--success)}
+.pill.p-announced{background:var(--card-alt);color:var(--subtle);border:1px dashed var(--faint)}
+
+tr.row-announced{opacity:.55}
+tr.row-announced:hover{opacity:.8}
 
 .notes{font-size:.76rem;color:var(--muted);margin-top:14px;line-height:1.7}
 .notes strong{color:var(--text)}
@@ -297,8 +310,8 @@ footer{
 <div class="container">
   <header>
     <h1>SG Voucher Tracker</h1>
-    <p class="subtitle">CDC, SG60 & Climate voucher entitlements by household (2020–2026)</p>
-    <span class="badge">2020 — 2026</span>
+    <p class="subtitle">CDC, SG60 & Climate voucher entitlements by household (2020–2027)</p>
+    <span class="badge">2020 — 2027</span>
   </header>
 
   <div class="card">
@@ -314,12 +327,14 @@ footer{
           <option value="2024">2024</option>
           <option value="2025">2025</option>
           <option value="2026">2026</option>
+          <option value="2027">2027</option>
         </select>
       </div>
       <div class="form-group">
         <label for="yearTo">To Year</label>
         <select id="yearTo">
-          <option value="2026" selected>2026</option>
+          <option value="2027" selected>2027</option>
+          <option value="2026">2026</option>
           <option value="2025">2025</option>
           <option value="2024">2024</option>
           <option value="2023">2023</option>
@@ -369,6 +384,7 @@ footer{
     <div class="card">
       <div class="card-title">Total Issued</div>
       <div class="metrics" id="metricsGrid"></div>
+      <p class="notes" id="announcedNote" style="display:none"></p>
     </div>
 
     <div class="card">
@@ -377,6 +393,7 @@ footer{
         <div class="legend-item"><div class="legend-dot" style="background:var(--c-cdc)"></div> CDC</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--c-sg60)"></div> SG60</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--c-clim)"></div> Climate</div>
+        <div class="legend-item"><div class="legend-dot dot-announced"></div> Announced, not yet claimable</div>
       </div>
       <div id="barChart"></div>
     </div>
@@ -490,6 +507,18 @@ const TRANCHES = [
     note:'Brought forward from Jan 2027. Valid until 31 Dec 2027.'
   },
   {
+    // Announced but not yet on the official claim portal as of verification (16 Aug 2026) — exact claim-from
+    // date within Jan 2027 not yet published by MOF/CDC. Excluded from totals/claimable/chart-real-stack;
+    // shown greyed out via status:'announced'. Source: MOF media factsheet, reported via Mothership.sg
+    // ("S'porean households to get S$300 CDC vouchers in Jan. 2027...", 29 Jul 2026).
+    id:'cdc-2027-jan', label:'Jan 2027', year:2027, type:'CDC',
+    status:'announced',
+    amount:300, splitHeartland:150, splitSupermarket:150,
+    claimFrom:'2027-01-01', claimFromLabel:'Jan 2027 (exact date TBC)', expires:'2027-12-31',
+    eligibility:'all',
+    note:'Announced 29 Jul 2026 as part of a ~S$900m support package responding to Middle East-driven cost pressures. Not yet claimable — exact January 2027 claim date to be confirmed by CDC.'
+  },
+  {
     id:'sg60-2025', label:'Nov 2025', year:2025, type:'SG60',
     amount:null, amountAdult:600, amountSenior:800,
     splitHeartland:null, splitSupermarket:null,
@@ -547,12 +576,13 @@ function calculate() {
   const today = new Date();
   const filtered = TRANCHES.filter(t => t.year >= yearFrom && t.year <= yearTo)
     .sort((a, b) => a.claimFrom.localeCompare(b.claimFrom));
-  let runningTotal = 0, totalCDC = 0, totalSG60 = 0, totalClim = 0, trancheCount = 0;
-  const rows = [], yearTotals = {}, notes = new Set();
+  let runningTotal = 0, totalCDC = 0, totalSG60 = 0, totalClim = 0, trancheCount = 0, totalAnnounced = 0;
+  const rows = [], yearTotals = {}, announcedYearTotals = {}, notes = new Set();
   const claimable = [];
 
   for (const t of filtered) {
     let eligible = false, eligLabel = '', amount = 0, sg60SeniorCount = 0;
+    const isAnnounced = t.status === 'announced';
 
     if (t.type === 'CDC') {
       if (!isCitizen) { eligLabel = 'Not SC household'; }
@@ -608,14 +638,19 @@ function calculate() {
       }
     }
 
-    if (eligible) {
+    const k = t.type === 'CDC' ? 'cdc' : t.type === 'SG60' ? 'sg60' : 'clim';
+
+    if (eligible && isAnnounced) {
+      totalAnnounced += amount;
+      if (!announcedYearTotals[t.year]) announcedYearTotals[t.year] = {cdc:0,sg60:0,clim:0};
+      announcedYearTotals[t.year][k] += amount;
+    } else if (eligible) {
       runningTotal += amount;
       trancheCount++;
       if (t.type === 'CDC') totalCDC += amount;
       else if (t.type === 'SG60') totalSG60 += amount;
       else totalClim += amount;
       if (!yearTotals[t.year]) yearTotals[t.year] = {cdc:0,sg60:0,clim:0};
-      const k = t.type === 'CDC' ? 'cdc' : t.type === 'SG60' ? 'sg60' : 'clim';
       yearTotals[t.year][k] += amount;
     }
 
@@ -624,12 +659,14 @@ function calculate() {
     const claimDate = new Date(t.claimFrom + 'T00:00:00');
     const isClaimable = today >= claimDate && !isExpired;
 
-    if (eligible && isClaimable) {
+    if (eligible && isClaimable && !isAnnounced) {
       claimable.push({ type: t.type, label: t.label, amount, expires: t.expires, id: t.id });
     }
 
     let statusPill = '';
-    if (eligible) {
+    if (isAnnounced) {
+      statusPill = '<span class="pill p-announced">Announced</span>';
+    } else if (eligible) {
       if (isExpired) statusPill = '<span class="pill p-expired">Expired</span>';
       else if (isClaimable) statusPill = '<span class="pill p-active">Active</span>';
       else statusPill = '<span class="pill p-active">Upcoming</span>';
@@ -648,7 +685,9 @@ function calculate() {
     } else { splitText = '—'; }
 
     let eligPill;
-    if (t.type === 'CDC' && t.eligibility === 'means-tested' && eligible) {
+    if (isAnnounced) {
+      eligPill = `<span class="pill p-announced">${eligLabel}</span>`;
+    } else if (t.type === 'CDC' && t.eligibility === 'means-tested' && eligible) {
       eligPill = `<span class="pill p-means">${eligLabel}</span>`;
     } else if (eligible) {
       eligPill = `<span class="pill p-yes">${eligLabel}</span>`;
@@ -658,13 +697,13 @@ function calculate() {
 
     const claimLabel = t.type === 'SG60' && eligible
       ? (sg60SeniorCount > 0 ? fmtDate(t.claimFrom) : fmtDate(t.claimFromAdult))
-      : fmtDate(t.claimFrom);
+      : (t.claimFromLabel || fmtDate(t.claimFrom));
 
     if (t.note) notes.add(t.note);
 
     const typeClass = t.type === 'CDC' ? 'p-cdc' : t.type === 'SG60' ? 'p-sg60' : 'p-climate';
 
-    rows.push(`<tr>
+    rows.push(`<tr${isAnnounced ? ' class="row-announced"' : ''}>
       <td style="font-weight:600;white-space:nowrap">${t.label}</td>
       <td><span class="pill ${typeClass}">${t.type}</span></td>
       <td class="amt${eligible ? '' : ' na'}">${eligible ? 'S$' + amount.toLocaleString() : '—'}</td>
@@ -673,7 +712,7 @@ function calculate() {
       <td class="col-claim" style="font-size:.78rem;color:var(--muted)">${claimLabel}</td>
       <td style="font-size:.78rem;color:var(--muted)">${fmtDate(t.expires)}</td>
       <td>${statusPill}</td>
-      <td class="running-total" style="text-align:right">${eligible ? 'S$' + runningTotal.toLocaleString() : ''}</td>
+      <td class="running-total" style="text-align:right">${eligible && !isAnnounced ? 'S$' + runningTotal.toLocaleString() : (isAnnounced ? '—' : '')}</td>
     </tr>`);
   }
 
@@ -735,19 +774,41 @@ function calculate() {
     <div class="metric m-clim"><div class="m-label">Climate</div><div class="m-value">S$${totalClim.toLocaleString()}</div></div>
   `;
 
+  const announcedNote = document.getElementById('announcedNote');
+  if (totalAnnounced > 0) {
+    announcedNote.innerHTML = `+ S$${totalAnnounced.toLocaleString()} more <strong>announced but not yet claimable</strong> (not included in totals above — see greyed rows in the table below).`;
+    announcedNote.style.display = '';
+  } else {
+    announcedNote.style.display = 'none';
+  }
+
   const chartH = 170;
-  const maxVal = Math.max(...Object.values(yearTotals).map(y => y.cdc + y.sg60 + y.clim), 1);
+  const combinedTotals = {};
+  for (let yr = yearFrom; yr <= yearTo; yr++) {
+    const yt = yearTotals[yr] || {cdc:0, sg60:0, clim:0};
+    const ann = announcedYearTotals[yr] || {cdc:0, sg60:0, clim:0};
+    combinedTotals[yr] = yt.cdc + yt.sg60 + yt.clim + ann.cdc + ann.sg60 + ann.clim;
+  }
+  const maxVal = Math.max(...Object.values(combinedTotals), 1);
   let chartHtml = '<div class="vchart">';
   for (let yr = yearFrom; yr <= yearTo; yr++) {
     const yt = yearTotals[yr] || {cdc:0, sg60:0, clim:0};
+    const ann = announcedYearTotals[yr] || {cdc:0, sg60:0, clim:0};
     const total = yt.cdc + yt.sg60 + yt.clim;
+    const annTotal = ann.cdc + ann.sg60 + ann.clim;
     const cdcPx = Math.round((yt.cdc / maxVal) * chartH);
     const sg60Px = Math.round((yt.sg60 / maxVal) * chartH);
     const climPx = Math.round((yt.clim / maxVal) * chartH);
+    const annPx = Math.round((annTotal / maxVal) * chartH);
+    const annTip = ['cdc', 'sg60', 'clim'].filter(k => ann[k] > 0)
+      .map(k => `${k === 'cdc' ? 'CDC' : k === 'sg60' ? 'SG60' : 'Climate'} (announced) — S$${ann[k].toLocaleString()}`)
+      .join(' / ') || `Announced — S$${annTotal.toLocaleString()}`;
 
     chartHtml += `<div class="vchart-col">
+      ${annTotal > 0 ? `<div class="vchart-val-ann">+$${annTotal.toLocaleString()} exp.</div>` : ''}
       ${total > 0 ? `<div class="vchart-val">$${total.toLocaleString()}</div>` : '<div class="vchart-val" style="visibility:hidden">—</div>'}
       <div class="vchart-stack">
+        ${annPx > 0 ? `<div class="vchart-seg seg-announced" style="height:${annPx}px" data-tip="${annTip}"></div>` : ''}
         ${climPx > 0 ? `<div class="vchart-seg seg-clim" style="height:${climPx}px" data-tip="Climate — S$${yt.clim.toLocaleString()}"></div>` : ''}
         ${sg60Px > 0 ? `<div class="vchart-seg seg-sg60" style="height:${sg60Px}px" data-tip="SG60 — S$${yt.sg60.toLocaleString()}"></div>` : ''}
         ${cdcPx > 0 ? `<div class="vchart-seg seg-cdc" style="height:${cdcPx}px" data-tip="CDC — S$${yt.cdc.toLocaleString()}"></div>` : ''}
