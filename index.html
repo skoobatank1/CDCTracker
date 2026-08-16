@@ -113,6 +113,35 @@ header .badge{
 .check-row label{font-size:.84rem;color:var(--text);cursor:pointer}
 .check-row .hint{font-size:.72rem;color:var(--subtle);margin-left:2px}
 
+.members-section{margin-top:16px;padding-top:14px;border-top:1px solid var(--rule-light)}
+.section-label{
+  display:block;font-size:.72rem;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;
+}
+.section-label .hint{font-size:.72rem;color:var(--subtle);text-transform:none;letter-spacing:0;font-weight:400}
+.member-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.member-row .member-idx{font-size:.78rem;color:var(--subtle);width:60px;flex-shrink:0}
+.member-row input[type="number"]{
+  background:var(--card);border:1px solid var(--rule);color:var(--ink);
+  padding:8px 11px;border-radius:var(--radius-sm);
+  font-family:var(--sans);font-size:.86rem;font-weight:500;
+  outline:none;transition:border-color .15s,box-shadow .15s;
+  width:140px;
+}
+.member-row input[type="number"]:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(80,87,152,.12)}
+.member-row .remove-member{
+  background:none;border:1px solid var(--rule);color:var(--subtle);
+  width:28px;height:28px;border-radius:var(--radius-sm);cursor:pointer;
+  font-size:.9rem;line-height:1;flex-shrink:0;
+}
+.member-row .remove-member:hover{color:var(--danger);border-color:var(--danger)}
+.add-member{
+  background:none;border:1px dashed var(--faint);color:var(--primary);
+  padding:6px 14px;border-radius:var(--radius-sm);
+  font-family:var(--sans);font-size:.8rem;font-weight:600;cursor:pointer;margin-top:2px;
+}
+.add-member:hover{border-color:var(--primary);background:var(--primary-bg)}
+
 button.calc{
   background:var(--primary);color:#fff;border:none;
   padding:9px 24px;border-radius:var(--radius-sm);
@@ -276,7 +305,7 @@ footer{
     <div class="card-title">Configuration</div>
     <div class="form-row">
       <div class="form-group">
-        <label>From Year</label>
+        <label for="yearFrom">From Year</label>
         <select id="yearFrom">
           <option value="2020">2020</option>
           <option value="2021">2021</option>
@@ -288,7 +317,7 @@ footer{
         </select>
       </div>
       <div class="form-group">
-        <label>To Year</label>
+        <label for="yearTo">To Year</label>
         <select id="yearTo">
           <option value="2026" selected>2026</option>
           <option value="2025">2025</option>
@@ -300,11 +329,7 @@ footer{
         </select>
       </div>
       <div class="form-group">
-        <label>Birth Year</label>
-        <input type="number" id="birthYear" placeholder="e.g. 1990" min="1920" max="2010" value="1990">
-      </div>
-      <div class="form-group">
-        <label>Housing Type</label>
+        <label for="housingType">Housing Type</label>
         <select id="housingType">
           <option value="hdb-small">HDB 1–3 Room</option>
           <option value="hdb-large" selected>HDB 4–5 Room / Exec</option>
@@ -316,12 +341,20 @@ footer{
     <div class="check-row">
       <input type="checkbox" id="isCitizen" checked>
       <label for="isCitizen">Singapore Citizen household</label>
+      <span class="hint">— applies to household-level vouchers (CDC, Climate)</span>
     </div>
     <div class="check-row">
       <input type="checkbox" id="isLowerIncome">
       <label for="isLowerIncome">Lower-income household (2020)</label>
       <span class="hint">— Jun 2020 means-tested CDC tranche only</span>
     </div>
+
+    <div class="members-section">
+      <label class="section-label" id="membersLabel">Household Members <span class="hint">— birth year of each SC household member, needed because SG60 Vouchers are paid per individual, not per household</span></label>
+      <div id="membersList"></div>
+      <button type="button" class="add-member" onclick="addMember()">+ Add household member</button>
+    </div>
+
     <div style="margin-top:14px">
       <button class="calc" onclick="calculate()">Calculate</button>
     </div>
@@ -375,7 +408,7 @@ footer{
   <footer>
     Data sourced from
     <a href="https://vouchers.cdc.gov.sg" target="_blank">vouchers.cdc.gov.sg</a>,
-    <a href="https://www.sg60.gov.sg/budget-initiatives/sg60-vouchers/" target="_blank">sg60.gov.sg</a>,
+    <a href="https://vouchers.sg60.gov.sg" target="_blank">vouchers.sg60.gov.sg</a>,
     <a href="https://www.climate-friendly-households.gov.sg/" target="_blank">climate-friendly-households.gov.sg</a>
     and government press releases. Last verified June 2026.
     For reference only — not official government guidance.
@@ -474,6 +507,8 @@ const TRANCHES = [
     splitUse:'Appliances & fittings'
   },
   {
+    // amountTopUp (75) is set so hdb-small cumulative = clim-2020-nov.amount(225) + 75 = 300, matching the note below.
+    // If clim-2020-nov.amount ever changes, amountTopUp must be re-derived to keep the S$300 cumulative figure true.
     id:'clim-2024-apr', label:'Apr 2024', year:2024, type:'Climate',
     amount:300, amountTopUp:75,
     claimFrom:'2024-04-15', expires:'2027-12-31',
@@ -482,6 +517,10 @@ const TRANCHES = [
     splitUse:'Appliances & fittings'
   },
   {
+    // Private-property branch below hardcodes amount=400 (not t.amount=100): it's a one-shot catch-up equal to the
+    // HDB cumulative total (clim-2020-nov 225 + clim-2024-apr 300's implicit 75 top-up + this tranche's 100 = 400),
+    // since private households didn't participate in the earlier tranches. If any of those three figures changes,
+    // update the hardcoded 400 in calculate() (search "Private SC") to match.
     id:'clim-2025-apr', label:'Apr 2025', year:2025, type:'Climate',
     amount:100,
     claimFrom:'2025-04-15', expires:'2027-12-31',
@@ -494,13 +533,16 @@ const TRANCHES = [
 function calculate() {
   const yearFrom = +document.getElementById('yearFrom').value;
   const yearTo = +document.getElementById('yearTo').value;
-  const birthYear = +document.getElementById('birthYear').value;
   const isCitizen = document.getElementById('isCitizen').checked;
   const isLowerIncome = document.getElementById('isLowerIncome').checked;
   const housing = document.getElementById('housingType').value;
 
+  const memberInputs = [...document.querySelectorAll('.member-birthyear')];
+  const memberBirthYears = memberInputs.map(inp => +inp.value);
+
   if (yearFrom > yearTo) { alert('"From Year" must be ≤ "To Year".'); return; }
-  if (!birthYear || birthYear < 1920 || birthYear > 2010) { alert('Enter a valid birth year (1920–2010).'); return; }
+  if (memberBirthYears.length === 0) { alert('Add at least one household member (birth year).'); return; }
+  if (memberBirthYears.some(by => !by || by < 1920 || by > 2010)) { alert('Enter a valid birth year (1920–2010) for every household member.'); return; }
 
   const today = new Date();
   const filtered = TRANCHES.filter(t => t.year >= yearFrom && t.year <= yearTo)
@@ -510,7 +552,7 @@ function calculate() {
   const claimable = [];
 
   for (const t of filtered) {
-    let eligible = false, eligLabel = '', amount = 0;
+    let eligible = false, eligLabel = '', amount = 0, sg60SeniorCount = 0;
 
     if (t.type === 'CDC') {
       if (!isCitizen) { eligLabel = 'Not SC household'; }
@@ -521,12 +563,28 @@ function calculate() {
       amount = eligible ? t.amount : 0;
 
     } else if (t.type === 'SG60') {
+      // Per-individual voucher: sum each household member's entitlement separately, not a flat household amount.
       if (!isCitizen) { eligLabel = 'Not SC'; }
       else {
-        const age25 = 2025 - birthYear;
-        if (age25 < 21) { eligLabel = 'Under 21 in 2025'; }
-        else if (age25 >= 60) { eligible = true; amount = t.amountSenior; eligLabel = 'Senior $800'; }
-        else { eligible = true; amount = t.amountAdult; eligLabel = 'Adult $600'; }
+        const perMember = memberBirthYears.map(by => {
+          const age25 = 2025 - by;
+          if (age25 < 21) return { amt: 0, tier: 'under21' };
+          if (age25 >= 60) return { amt: t.amountSenior, tier: 'senior' };
+          return { amt: t.amountAdult, tier: 'adult' };
+        });
+        const seniors = perMember.filter(p => p.tier === 'senior').length;
+        const adults = perMember.filter(p => p.tier === 'adult').length;
+        amount = perMember.reduce((s, p) => s + p.amt, 0);
+        eligible = amount > 0;
+        if (eligible) {
+          const parts = [];
+          if (seniors) parts.push(`${seniors}× Senior $${t.amountSenior}`);
+          if (adults) parts.push(`${adults}× Adult $${t.amountAdult}`);
+          eligLabel = parts.join(' + ');
+        } else {
+          eligLabel = 'All members under 21 in 2025';
+        }
+        sg60SeniorCount = seniors;
       }
 
     } else if (t.type === 'Climate') {
@@ -563,7 +621,7 @@ function calculate() {
 
     const expiryDate = new Date(t.expires + 'T23:59:59');
     const isExpired = today > expiryDate;
-    const claimDate = new Date(t.claimFrom);
+    const claimDate = new Date(t.claimFrom + 'T00:00:00');
     const isClaimable = today >= claimDate && !isExpired;
 
     if (eligible && isClaimable) {
@@ -599,7 +657,7 @@ function calculate() {
     }
 
     const claimLabel = t.type === 'SG60' && eligible
-      ? (2025 - birthYear >= 60 ? fmtDate(t.claimFrom) : fmtDate(t.claimFromAdult))
+      ? (sg60SeniorCount > 0 ? fmtDate(t.claimFrom) : fmtDate(t.claimFromAdult))
       : fmtDate(t.claimFrom);
 
     if (t.note) notes.add(t.note);
@@ -628,7 +686,8 @@ function calculate() {
     const CLAIM_LINKS = {
       CDC: 'https://go.gov.sg/cdcv',
       SG60: 'https://vouchers.sg60.gov.sg',
-      Climate: 'https://go.gov.sg/cv'
+      // go.gov.sg/cv (the previous short link) 302-redirects to canva.com, not a government site — verified 2026-08-16.
+      Climate: 'https://www.climate-friendly-households.gov.sg/'
     };
     const byType = {};
     for (const c of claimable) {
@@ -726,7 +785,35 @@ function bindChartTips() {
   });
 }
 
+function addMember(birthYear) {
+  const list = document.getElementById('membersList');
+  const row = document.createElement('div');
+  row.className = 'member-row';
+  row.innerHTML = `
+    <span class="member-idx">Member ${list.children.length + 1}</span>
+    <input type="number" class="member-birthyear" aria-label="Household member ${list.children.length + 1} birth year"
+      placeholder="e.g. 1990" min="1920" max="2010" value="${birthYear || 1990}">
+    <button type="button" class="remove-member" title="Remove member" onclick="removeMember(this)">&times;</button>
+  `;
+  list.appendChild(row);
+  renumberMembers();
+}
+
+function removeMember(btn) {
+  const list = document.getElementById('membersList');
+  if (list.children.length <= 1) return; // keep at least one member row
+  btn.closest('.member-row').remove();
+  renumberMembers();
+}
+
+function renumberMembers() {
+  document.querySelectorAll('#membersList .member-row').forEach((row, i) => {
+    row.querySelector('.member-idx').textContent = `Member ${i + 1}`;
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  addMember(1990);
   document.getElementById('results').dataset.initialLoad = '1';
   calculate();
   window.scrollTo(0, 0);
