@@ -1,0 +1,61 @@
+name: Check voucher sources for updates
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'  # Monday 01:00 UTC / 09:00 SGT
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check official voucher pages for changes
+        id: check
+        run: python3 .github/scripts/check_voucher_sources.py
+
+      - name: Commit updated snapshots
+        if: steps.check.outputs.triggered == 'true'
+        run: |
+          git config user.name "voucher-source-watcher"
+          git config user.email "actions@github.com"
+          git add .github/source-snapshots/
+          if ! git diff --cached --quiet; then
+            git commit -m "Update source snapshots (change detected)"
+            git push
+          fi
+
+      - name: Open or update tracking issue
+        if: steps.check.outputs.triggered == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGED: ${{ steps.check.outputs.changed_sites }}
+          FAILED: ${{ steps.check.outputs.failed_sites }}
+          SUMMARY: ${{ steps.check.outputs.summary }}
+        run: |
+          TITLE="Voucher source change detected — review needed"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --json number,title \
+            --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
+          BODY="Automated weekly check found changes worth a manual look.
+
+          **Changed:** ${CHANGED}
+          **Fetch failures:** ${FAILED}
+
+          <details><summary>Per-source detail</summary>
+
+          ${SUMMARY}
+
+          </details>
+
+          If a new tranche was announced, add it to the \`TRANCHES\` array in \`index.html\` (see the existing entries for the schema — use \`status:'announced'\` if it's not yet claimable). Close this issue once reviewed."
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
+          fi
