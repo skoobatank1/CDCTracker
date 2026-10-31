@@ -182,6 +182,30 @@ button.calc:hover{background:var(--primary-hover)}
 .vchart-val-ann{font-size:.64rem;font-weight:600;color:var(--subtle);margin-bottom:2px;white-space:nowrap}
 .vchart-label{font-size:.72rem;font-weight:500;color:var(--subtle);margin-top:6px;padding-top:6px}
 
+/* Expiry schedule (horizontal stacked bars, one row per expiry date) */
+.exp-sub{font-size:.76rem;color:var(--muted);margin:-4px 0 14px}
+.exp-row{display:grid;grid-template-columns:132px 1fr 84px;gap:4px 14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--rule-light)}
+.exp-row:last-of-type{border-bottom:none}
+.exp-date{font-size:.86rem;font-weight:700;color:var(--ink);white-space:nowrap}
+.exp-when{font-size:.7rem;font-weight:600;color:var(--subtle);margin-top:1px}
+.exp-when.soon{color:var(--warning)}
+.exp-track{display:flex;gap:2px;height:22px}
+.exp-seg{height:100%;min-width:3px;cursor:default;transition:opacity .12s}
+.exp-seg:last-child{border-radius:0 4px 4px 0}
+.exp-seg:hover{opacity:.75}
+.exp-seg.seg-cdc{background:var(--c-cdc)}
+.exp-seg.seg-sg60{background:var(--c-sg60)}
+.exp-seg.seg-clim{background:var(--c-clim)}
+.exp-seg.seg-announced{
+  background:repeating-linear-gradient(45deg,var(--faint),var(--faint) 4px,var(--rule-light) 4px,var(--rule-light) 8px);
+  outline:1px dashed var(--subtle);outline-offset:-1px;
+}
+.exp-total{font-size:1rem;font-weight:700;color:var(--ink);text-align:right;white-space:nowrap}
+.exp-items{grid-column:2 / 4;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.74rem;color:var(--muted)}
+.exp-item{display:flex;align-items:center;gap:5px}
+.exp-item .legend-dot{flex-shrink:0}
+.exp-item.ann{color:var(--subtle);font-style:italic}
+
 .vtip{
   position:fixed;pointer-events:none;z-index:100;
   background:var(--ink);color:#fff;
@@ -283,6 +307,9 @@ footer{
   .legend{gap:10px}
   .vchart-val{font-size:.64rem}
   .vchart-label{font-size:.66rem}
+  .exp-row{grid-template-columns:1fr auto;gap:6px 10px}
+  .exp-track{grid-column:1 / 3;grid-row:2}
+  .exp-items{grid-column:1 / 3}
   table{font-size:.72rem}
   thead th{font-size:.62rem;padding:6px 5px}
   tbody td{padding:6px 5px}
@@ -398,6 +425,18 @@ footer{
       <div id="barChart"></div>
     </div>
 
+    <div class="card" id="expiryCard">
+      <div class="card-title">Expiry Schedule</div>
+      <p class="exp-sub">Unexpired vouchers your household is entitled to, grouped by the date they lapse. Amounts are full entitlements — anything already spent won't show here, as the tracker can't see your balance.</p>
+      <div class="legend" style="margin-bottom:6px">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-cdc)"></div> CDC</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-sg60)"></div> SG60</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-clim)"></div> Climate</div>
+        <div class="legend-item"><div class="legend-dot dot-announced"></div> Announced, not yet claimable</div>
+      </div>
+      <div id="expiryChart"></div>
+    </div>
+
     <div class="card">
       <div class="card-title">All Tranches</div>
       <div class="tbl-wrap">
@@ -427,7 +466,7 @@ footer{
     <a href="https://vouchers.cdc.gov.sg" target="_blank">vouchers.cdc.gov.sg</a>,
     <a href="https://vouchers.sg60.gov.sg" target="_blank">vouchers.sg60.gov.sg</a>,
     <a href="https://www.climate-friendly-households.gov.sg/" target="_blank">climate-friendly-households.gov.sg</a>
-    and government press releases. Last verified June 2026.
+    and government press releases. Last verified 31 October 2026.
     For reference only — not official government guidance.
   </footer>
 </div>
@@ -507,14 +546,16 @@ const TRANCHES = [
     note:'Brought forward from Jan 2027. Valid until 31 Dec 2027.'
   },
   {
-    // Announced but not yet on the official claim portal as of verification (16 Aug 2026) — exact claim-from
-    // date within Jan 2027 not yet published by MOF/CDC. Excluded from totals/claimable/chart-real-stack;
-    // shown greyed out via status:'announced'. Source: MOF media factsheet, reported via Mothership.sg
-    // ("S'porean households to get S$300 CDC vouchers in Jan. 2027...", 29 Jul 2026).
+    // Announced but not yet on the official claim portal as of re-verification (31 Oct 2026; vouchers.cdc.gov.sg
+    // last updated 21 Oct 2026 still lists only Jan & Jun 2026) — exact claim-from date within Jan 2027 not yet
+    // published by MOF/CDC. Excluded from totals/claimable/chart-real-stack; shown greyed out via status:'announced'.
+    // Source: MOF media factsheet, reported via Mothership.sg ("S'porean households to get S$300 CDC vouchers in
+    // Jan. 2027...", 29 Jul 2026). expires is ASSUMED (31 Dec of claim year, per prior Jan tranches) — not yet
+    // officially stated, hence expiresTBC; drop the flag once CDC publishes the validity date.
     id:'cdc-2027-jan', label:'Jan 2027', year:2027, type:'CDC',
     status:'announced',
     amount:300, splitHeartland:150, splitSupermarket:150,
-    claimFrom:'2027-01-01', claimFromLabel:'Jan 2027 (exact date TBC)', expires:'2027-12-31',
+    claimFrom:'2027-01-01', claimFromLabel:'Jan 2027 (exact date TBC)', expires:'2027-12-31', expiresTBC:true,
     eligibility:'all',
     note:'Announced 29 Jul 2026 as part of a ~S$900m support package responding to Middle East-driven cost pressures. Not yet claimable — exact January 2027 claim date to be confirmed by CDC.'
   },
@@ -578,7 +619,7 @@ function calculate() {
     .sort((a, b) => a.claimFrom.localeCompare(b.claimFrom));
   let runningTotal = 0, totalCDC = 0, totalSG60 = 0, totalClim = 0, trancheCount = 0, totalAnnounced = 0;
   const rows = [], yearTotals = {}, announcedYearTotals = {}, notes = new Set();
-  const claimable = [];
+  const claimable = [], expiring = [];
 
   for (const t of filtered) {
     let eligible = false, eligLabel = '', amount = 0, sg60SeniorCount = 0;
@@ -662,6 +703,9 @@ function calculate() {
     if (eligible && isClaimable && !isAnnounced) {
       claimable.push({ type: t.type, label: t.label, amount, expires: t.expires, id: t.id });
     }
+    if (eligible && !isExpired) {
+      expiring.push({ type: t.type, k, label: t.label, amount, expires: t.expires, announced: isAnnounced, expiresTBC: !!t.expiresTBC });
+    }
 
     let statusPill = '';
     if (isAnnounced) {
@@ -710,7 +754,7 @@ function calculate() {
       <td class="col-split" style="font-size:.76rem;color:var(--muted)">${eligible ? splitText : '—'}</td>
       <td>${eligPill}</td>
       <td class="col-claim" style="font-size:.78rem;color:var(--muted)">${claimLabel}</td>
-      <td style="font-size:.78rem;color:var(--muted)">${fmtDate(t.expires)}</td>
+      <td style="font-size:.78rem;color:var(--muted)">${fmtDate(t.expires)}${t.expiresTBC ? ' (TBC)' : ''}</td>
       <td>${statusPill}</td>
       <td class="running-total" style="text-align:right">${eligible && !isAnnounced ? 'S$' + runningTotal.toLocaleString() : (isAnnounced ? '—' : '')}</td>
     </tr>`);
@@ -818,6 +862,7 @@ function calculate() {
   }
   chartHtml += '</div>';
   document.getElementById('barChart').innerHTML = chartHtml;
+  renderExpirySchedule(expiring, today);
   bindChartTips();
 
   const notesArr = [...notes];
@@ -837,9 +882,61 @@ function fmtDate(dateStr) {
   return `${d.getDate()} ${m[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+// One row per distinct expiry date; bar length shares a single scale across rows so amounts compare directly.
+function renderExpirySchedule(expiring, today) {
+  const el = document.getElementById('expiryChart');
+  if (!expiring.length) {
+    el.innerHTML = '<div class="claimable-none">No unexpired vouchers in selected range.</div>';
+    return;
+  }
+  const TYPE_NAME = { cdc: 'CDC', sg60: 'SG60', clim: 'Climate' };
+  const TYPE_ORDER = { cdc: 0, sg60: 1, clim: 2 };
+  const groups = {};
+  for (const e of expiring) (groups[e.expires] = groups[e.expires] || []).push(e);
+  const dates = Object.keys(groups).sort();
+  const maxVal = Math.max(...dates.map(d => groups[d].reduce((s, e) => s + e.amount, 0)), 1);
+
+  let html = '';
+  for (const d of dates) {
+    // Real entitlements first (by type), announced tranches last so the hatched part sits at the bar's end.
+    const items = groups[d].sort((a, b) => (a.announced - b.announced) || (TYPE_ORDER[a.k] - TYPE_ORDER[b.k]));
+    const total = items.reduce((s, e) => s + e.amount, 0);
+    const confirmed = items.filter(e => !e.announced).reduce((s, e) => s + e.amount, 0);
+    const days = Math.ceil((new Date(d + 'T23:59:59') - today) / 86400000);
+    const whenText = days <= 1 ? 'Expires today'
+      : days <= 90 ? `${days} days left`
+      : days <= 730 ? `in ${Math.round(days / 30.44)} months`
+      : `in ${(days / 365.25).toFixed(1)} years`;
+    const anyTBC = items.some(e => e.expiresTBC);
+
+    const segs = items.map(e => {
+      const name = `${TYPE_NAME[e.k]} ${e.label}`;
+      const tipText = `${name}${e.announced ? ' (announced)' : ''} — S$${e.amount.toLocaleString()}${e.expiresTBC ? ' · expiry TBC' : ''}`;
+      return `<div class="exp-seg ${e.announced ? 'seg-announced' : 'seg-' + e.k}" style="width:${(e.amount / maxVal) * 100}%" data-tip="${tipText}"></div>`;
+    }).join('');
+    const list = items.map(e => `<span class="exp-item${e.announced ? ' ann' : ''}">
+        <span class="legend-dot ${e.announced ? 'dot-announced' : ''}" style="${e.announced ? '' : `background:var(--c-${e.k})`}"></span>
+        ${TYPE_NAME[e.k]} ${e.label} · S$${e.amount.toLocaleString()}${e.announced ? ' (announced)' : ''}</span>`).join('');
+
+    html += `<div class="exp-row">
+      <div>
+        <div class="exp-date">${fmtDate(d)}${anyTBC ? '*' : ''}</div>
+        <div class="exp-when${days <= 90 ? ' soon' : ''}">${whenText}</div>
+      </div>
+      <div class="exp-track">${segs}</div>
+      <div class="exp-total">S$${total.toLocaleString()}${confirmed !== total ? `<div class="exp-when">S$${confirmed.toLocaleString()} claimable</div>` : ''}</div>
+      <div class="exp-items">${list}</div>
+    </div>`;
+  }
+  if (expiring.some(e => e.expiresTBC)) {
+    html += '<p class="notes">* Includes a tranche whose expiry date has not been officially confirmed; date shown is assumed from previous tranches.</p>';
+  }
+  el.innerHTML = html;
+}
+
 function bindChartTips() {
   const tip = document.getElementById('vtip');
-  document.querySelectorAll('.vchart-seg[data-tip]').forEach(seg => {
+  document.querySelectorAll('.vchart-seg[data-tip], .exp-seg[data-tip]').forEach(seg => {
     seg.addEventListener('mouseenter', () => { tip.textContent = seg.dataset.tip; tip.classList.add('show'); });
     seg.addEventListener('mousemove', e => { tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; });
     seg.addEventListener('mouseleave', () => { tip.classList.remove('show'); });
